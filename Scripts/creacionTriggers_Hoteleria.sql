@@ -160,3 +160,19 @@ BEGIN
     inner join Estados e on e.Id_Estado =  r.id_estadoHabitacion
     where e.tabla = 'Habitaciones'
 END;
+
+------------------------------------------------------------------------
+-- TRIGGER PARA INSERTAR EL MONTO DE PRECIOHABITACION CUANDO SE INGRESA UNA RESERVA.
+
+ create trigger trg_reserva_updatePrHabitacion
+  on reservas 
+  after insert 
+  as
+  begin 
+  update r
+  set r.precioHabitacion= th.precio_por_noche
+  from reservas r
+  inner join inserted i on i.id_reserva = r.id_reserva
+  inner join habitaciones h on h.id_habitacion = r.id_habitacion
+  inner join Tipo_Habitacion th on th.id_tipo_habitacion = h.id_tipo_habitacion
+  END;
