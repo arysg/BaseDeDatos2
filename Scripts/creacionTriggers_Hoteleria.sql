@@ -128,3 +128,35 @@ BEGIN
         );
     END;
 END;
+------------------------------------------------------------------------
+
+-- TRIGGER PARA ACTUALIZAR EL ESTADO cuando se inserta una reserva.
+
+CREATE TRIGGER trg_reserva_insertaEstado
+ON Reservas
+AFTER INSERT
+AS
+BEGIN
+    UPDATE r
+    SET r.estado = e.estadoNombre
+    from reservas r
+    inner join inserted i on i.id_reserva = r.id_reserva
+    inner join Estados e on e.Id_Estado =  r.Id_EstadoReserva
+    where e.tabla = 'Reservas'
+END;
+
+------------------------------------------------------------------------
+-- Trigger para actualizar el estado cuando se updatea el id_estadohabitacion
+
+CREATE TRIGGER trg_habitaciones_updateEstado
+ON habitaciones
+AFTER UPDATE
+AS
+BEGIN
+    UPDATE r
+    SET r.estado = e.estadoNombre
+    from Habitaciones r
+    inner join inserted i on i.id_habitacion = r.id_habitacion
+    inner join Estados e on e.Id_Estado =  r.id_estadoHabitacion
+    where e.tabla = 'Habitaciones'
+END;
