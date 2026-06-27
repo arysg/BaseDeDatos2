@@ -1,116 +1,93 @@
--- Trigger cuando una reserva esta "En curso" el estado de esa habitacion pasa a "OCUPADA"
 CREATE TRIGGER trg_reserva_insert
 ON Reservas
 AFTER INSERT
 AS
 BEGIN
     UPDATE Habitaciones
-    SET estado = 'Ocupada'
+    SET id_estadoHabitacion = 2
     WHERE id_habitacion IN (
-        SELECT id_habitacion FROM inserted WHERE estado = 'En Curso'
+        SELECT id_habitacion FROM inserted WHERE Id_EstadoReserva = 6
     );
 END;
+GO
 
--- select * from Habitaciones;
-------------------------------------------------------------------------
+CREATE TRIGGER trg_reserva_update
+ON Reservas
+AFTER UPDATE
+AS
+BEGIN
+    IF UPDATE(Id_EstadoReserva)
+    BEGIN
+        UPDATE Habitaciones
+        SET id_estadoHabitacion = 1
+        WHERE id_habitacion IN (
+            SELECT id_habitacion FROM inserted WHERE Id_EstadoReserva IN (7, 8));
 
--- Este trigger modifica el estado de la habitacion cuando se updetea el estado de la reserva.
-create trigger trg_reserva_update
-on reservas
-after update
-as begin 
-    if UPDATE(estado)
-    begin
-    update habitaciones
-    set estado = 'Disponible'
-    where id_habitacion in (
-    select id_habitacion from inserted where estado in ('Cancelada','Finalizada'));
+        UPDATE Habitaciones
+        SET id_estadoHabitacion = 2
+        WHERE id_habitacion IN (
+            SELECT id_habitacion FROM inserted WHERE Id_EstadoReserva = 6);
+    END;
+END;
+GO
 
-    update habitaciones
-    set estado = 'Ocupada'
-    where id_habitacion in (
-    select id_habitacion from inserted where estado in ('En Curso'));
-    end;
-end;
- --select * from Habitaciones;
- --select * from Reservas;
-------------------------------------------------------------------------
--- Trigger para calcular subtotal (precio x cantidad)
-create trigger trg_consumo_insert
-on consumos
-after insert 
+CREATE TRIGGER trg_consumo_insert
+ON Consumos
+AFTER INSERT
 AS
 BEGIN
     UPDATE c
     SET c.subtotal = i.cantidad * s.precio
-    from consumos c
-    inner join inserted i on i.id_consumo = c.id_consumo
-    inner join Servicios s on s.id_servicio = c.id_servicio;
+    FROM Consumos c
+    INNER JOIN inserted i ON i.id_consumo = c.id_consumo
+    INNER JOIN Servicios s ON s.id_servicio = c.id_servicio;
 END;
+GO
 
---select * from consumos;
---select * from servicios;
-------------------------------------------------------------------------
--- Trigger para mantenimientos(cuando se ingresa un mantenimiento sin fecha fin la habitacion pasa a "EN MANTENIMIENTO"
+CREATE TRIGGER trg_mantenimiento_insert
+ON Mantenimiento
+AFTER INSERT
+AS
+BEGIN
+    UPDATE Habitaciones
+    SET id_estadoHabitacion = 3
+    WHERE id_habitacion IN (SELECT id_habitacion FROM inserted WHERE fecha_fin IS NULL);
+END;
+GO
 
-create trigger trg_mantenimiento_insert
-on mantenimiento
-after insert
-as
-begin 
-    update Habitaciones
-    set estado = 'EN MANTENIMIENTO'
-    where id_habitacion in (select id_habitacion from inserted where fecha_fin is  null);
-end;
-
---select * from Mantenimiento;
---select * from Habitaciones;
-------------------------------------------------------------------------
--- Al eliminar un consumo recalcula los totales de la factura
-create trigger trg_consumo_delete
-on consumos
-after delete
-as 
-begin
-    update f
-    set f.total_consumos = ISNULL((
-    select sum(c.subtotal)
-    from consumos c
-    where c.id_reserva = f.id_reserva
-    ),0),
+CREATE TRIGGER trg_consumo_delete
+ON Consumos
+AFTER DELETE
+AS
+BEGIN
+    UPDATE f
+    SET f.total_consumos = ISNULL((
+        SELECT SUM(c.subtotal)
+        FROM Consumos c
+        WHERE c.id_reserva = f.id_reserva
+    ), 0),
     f.total = f.total_alojamiento + ISNULL((
-    select sum (c.subtotal)
-    from consumos c
-    where c.id_reserva = f.id_reserva
-    ),0)
-    from facturas f 
-    inner join deleted d on d.id_reserva = f.id_reserva;
- end;
+        SELECT SUM(c.subtotal)
+        FROM Consumos c
+        WHERE c.id_reserva = f.id_reserva
+    ), 0)
+    FROM Facturas f
+    INNER JOIN deleted d ON d.id_reserva = f.id_reserva;
+END;
+GO
 
-  --  select * from consumos;
-  --  select * from Facturas;
-------------------------------------------------------------------------
--- al eliminar una reserva se cambia el estado de la habitacion
+CREATE TRIGGER trg_reserva_delete
+ON Reservas
+AFTER DELETE
+AS
+BEGIN
+    UPDATE Habitaciones
+    SET id_estadoHabitacion = 1
+    WHERE id_habitacion IN (
+        SELECT id_habitacion FROM deleted WHERE Id_EstadoReserva = 6);
+END;
+GO
 
-create trigger trg_reserva_delete
-on reservas
-after delete
-as
-begin
-    update Habitaciones
-    set estado = 'Disponible'
-    where id_habitacion in 
-    (select id_habitacion from deleted where estado = 'En Curso' );
-end;
-
-
--- select * from Reservas;
--- select * from Habitaciones;
-
-
-------------------------------------------------------------------------
-
---Trigger cuando se finaliza un mantenimiento (se carga fecha_fin) libera la habitacion
 CREATE TRIGGER trg_mantenimiento_update
 ON Mantenimiento
 AFTER UPDATE
@@ -119,7 +96,7 @@ BEGIN
     IF UPDATE(fecha_fin)
     BEGIN
         UPDATE Habitaciones
-        SET estado = 'Disponible'
+        SET id_estadoHabitacion = 1
         WHERE id_habitacion IN (
             SELECT I.id_habitacion
             FROM inserted I
@@ -128,9 +105,7 @@ BEGIN
         );
     END;
 END;
-------------------------------------------------------------------------
-
--- TRIGGER PARA ACTUALIZAR EL ESTADO cuando se inserta una reserva.
+GO
 
 CREATE TRIGGER trg_reserva_insertaEstado
 ON Reservas
@@ -138,41 +113,100 @@ AFTER INSERT
 AS
 BEGIN
     UPDATE r
-    SET r.estado = e.estadoNombre
-    from reservas r
-    inner join inserted i on i.id_reserva = r.id_reserva
-    inner join Estados e on e.Id_Estado =  r.Id_EstadoReserva
-    where e.tabla = 'Reservas'
+    SET r.estado = e.EstadoNombre
+    FROM Reservas r
+    INNER JOIN inserted i ON i.id_reserva = r.id_reserva
+    INNER JOIN Estados e ON e.Id_Estado = r.Id_EstadoReserva
+    WHERE e.Tabla = 'Reservas'
 END;
+GO
 
-------------------------------------------------------------------------
--- Trigger para actualizar el estado cuando se updatea el id_estadohabitacion
-
-CREATE TRIGGER trg_habitaciones_updateEstado
-ON habitaciones
+CREATE TRIGGER trg_reserva_updateEstado
+ON Reservas
 AFTER UPDATE
 AS
 BEGIN
-    UPDATE r
-    SET r.estado = e.estadoNombre
-    from Habitaciones r
-    inner join inserted i on i.id_habitacion = r.id_habitacion
-    inner join Estados e on e.Id_Estado =  r.id_estadoHabitacion
-    where e.tabla = 'Habitaciones'
+    IF UPDATE(Id_EstadoReserva)
+    BEGIN
+        UPDATE r
+        SET r.estado = e.EstadoNombre
+        FROM Reservas r
+        INNER JOIN inserted i ON i.id_reserva = r.id_reserva
+        INNER JOIN Estados e ON e.Id_Estado = r.Id_EstadoReserva
+        WHERE e.Tabla = 'Reservas'
+    END;
 END;
+GO
 
-------------------------------------------------------------------------
--- TRIGGER PARA INSERTAR EL MONTO DE PRECIOHABITACION CUANDO SE INGRESA UNA RESERVA.
+CREATE TRIGGER trg_habitaciones_updateEstado
+ON Habitaciones
+AFTER UPDATE
+AS
+BEGIN
+    UPDATE h
+    SET h.estado = e.EstadoNombre
+    FROM Habitaciones h
+    INNER JOIN inserted i ON i.id_habitacion = h.id_habitacion
+    INNER JOIN Estados e ON e.Id_Estado = h.id_estadoHabitacion
+    WHERE e.Tabla = 'Habitaciones'
+END;
+GO
 
- create trigger trg_reserva_updatePrHabitacion
-  on reservas 
-  after insert 
-  as
-  begin 
-  update r
-  set r.precioHabitacion= th.precio_por_noche
-  from reservas r
-  inner join inserted i on i.id_reserva = r.id_reserva
-  inner join habitaciones h on h.id_habitacion = r.id_habitacion
-  inner join Tipo_Habitacion th on th.id_tipo_habitacion = h.id_tipo_habitacion
-  END;
+CREATE TRIGGER trg_habitaciones_insertaEstado
+ON Habitaciones
+AFTER INSERT
+AS
+BEGIN
+    UPDATE h
+    SET h.estado = e.EstadoNombre
+    FROM Habitaciones h
+    INNER JOIN inserted i ON i.id_habitacion = h.id_habitacion
+    INNER JOIN Estados e ON e.Id_Estado = h.id_estadoHabitacion
+    WHERE e.Tabla = 'Habitaciones'
+END;
+GO
+
+CREATE TRIGGER trg_reserva_updatePrHabitacion
+ON Reservas
+AFTER INSERT
+AS
+BEGIN
+    UPDATE r
+    SET r.PrecioHabitacion = th.precio_por_noche
+    FROM Reservas r
+    INNER JOIN inserted i ON i.id_reserva = r.id_reserva
+    INNER JOIN Habitaciones h ON h.id_habitacion = r.id_habitacion
+    INNER JOIN Tipo_Habitacion th ON th.id_tipo_habitacion = h.id_tipo_habitacion
+END;
+GO
+
+CREATE TRIGGER trg_facturas_updateEstado
+ON Facturas
+AFTER UPDATE
+AS
+BEGIN
+    IF UPDATE(id_estadoFactura)
+    BEGIN
+        UPDATE f
+        SET f.estado = e.EstadoNombre
+        FROM Facturas f
+        INNER JOIN inserted i ON i.id_factura = f.id_factura
+        INNER JOIN Estados e ON e.Id_Estado = f.id_estadoFactura
+        WHERE e.Tabla = 'Facturas'
+    END;
+END;
+GO
+
+CREATE TRIGGER trg_facturas_insertaEstado
+ON Facturas
+AFTER INSERT
+AS
+BEGIN
+    UPDATE f
+    SET f.estado = e.EstadoNombre
+    FROM Facturas f
+    INNER JOIN inserted i ON i.id_factura = f.id_factura
+    INNER JOIN Estados e ON e.Id_Estado = f.id_estadoFactura
+    WHERE e.Tabla = 'Facturas'
+END;
+GO

@@ -1,8 +1,4 @@
 
--- =============================================
--- Tablas sin dependencias (sin FKs)
--- =============================================
-
 CREATE TABLE Huespedes (
     id_huesped      INT IDENTITY(1,1) PRIMARY KEY,
     nombre          VARCHAR(255)    NOT NULL,
@@ -29,7 +25,7 @@ CREATE TABLE Servicios (
     nombre          VARCHAR(255)    NOT NULL,
     descripcion     VARCHAR(255)    NULL,
     precio          DECIMAL(10,2)   NOT NULL,
-    activo          INT             NOT NULL DEFAULT 1
+    activo          BIT             NOT NULL DEFAULT 1
 );
 
 CREATE TABLE Empleados (
@@ -40,26 +36,25 @@ CREATE TABLE Empleados (
     telefono        VARCHAR(255)    NULL,
     email           VARCHAR(255)    NULL,
     fecha_ingreso   DATE            NOT NULL,
-    activo          VARCHAR(255)    NOT NULL DEFAULT 'Si'
+    activo          BIT             NOT NULL DEFAULT 1
 );
 
--- =============================================
--- Tablas con 1 FK
--- =============================================
+CREATE TABLE Estados (
+    Id_Estado       INT IDENTITY(1,1) PRIMARY KEY,
+    EstadoNombre    VARCHAR(50)     NULL,
+    Tabla           VARCHAR(50)     NULL
+);
 
 CREATE TABLE Habitaciones (
     id_habitacion       INT IDENTITY(1,1) PRIMARY KEY,
     numero              INT             NOT NULL UNIQUE,
     piso                INT             NOT NULL,
     id_tipo_habitacion  INT             NOT NULL,
-    estado              VARCHAR(255)    NOT NULL DEFAULT 'Disponible',
+    estado              VARCHAR(255)    NULL,
+    id_estadoHabitacion INT             NOT NULL,
     CONSTRAINT fk_Habitaciones_id_tipo_habitacion_Tipo_Habitacion
         FOREIGN KEY (id_tipo_habitacion) REFERENCES Tipo_Habitacion(id_tipo_habitacion)
 );
-
--- =============================================
--- Tablas con 2 FKs
--- =============================================
 
 CREATE TABLE Reservas (
     id_reserva      INT IDENTITY(1,1) PRIMARY KEY,
@@ -67,9 +62,11 @@ CREATE TABLE Reservas (
     id_habitacion   INT             NOT NULL,
     fecha_checkin   DATE            NOT NULL,
     fecha_checkout  DATE            NOT NULL,
-    estado          VARCHAR(255)    NOT NULL DEFAULT 'Pendiente',
+    estado          VARCHAR(255)    NULL,
     fecha_reserva   DATE            NOT NULL DEFAULT GETDATE(),
     observaciones   VARCHAR(255)    NULL,
+    Id_EstadoReserva INT            NOT NULL,
+    PrecioHabitacion FLOAT          NOT NULL DEFAULT 0,
     CONSTRAINT fk_Huespedes_id_huesped_Reservas
         FOREIGN KEY (id_huesped) REFERENCES Huespedes(id_huesped),
     CONSTRAINT fk_Reservas_id_habitacion_Habitaciones
@@ -98,7 +95,8 @@ CREATE TABLE Facturas (
     total_consumos      DECIMAL(10,2)   NOT NULL DEFAULT 0,
     total               DECIMAL(10,2)   NOT NULL DEFAULT 0,
     metodo_pago         VARCHAR(255)    NOT NULL,
-    estado              VARCHAR(255)    NOT NULL DEFAULT 'Pendiente',
+    estado              VARCHAR(255)    NULL,
+    id_estadoFactura    INT             NOT NULL,
     CONSTRAINT fk_id_reserva_Facturas
         FOREIGN KEY (id_reserva) REFERENCES Reservas(id_reserva)
 );
